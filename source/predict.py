@@ -1,50 +1,41 @@
 import joblib
+import os
 import pandas as pd
-from source.data_processing import create_advisory
+
+CROP_MODEL_PATH = "models/crop_model.pkl"
+RISK_MODEL_PATH = "models/risk_model.pkl"
 
 
-# Load saved models
-crop_model = joblib.load("models/crop_model.pkl")
-risk_model = joblib.load("models/risk_model.pkl")
+def load_models():
+    """
+    Load trained crop and risk models only when needed.
+    """
+    if not os.path.exists(CROP_MODEL_PATH):
+        raise FileNotFoundError(f"{CROP_MODEL_PATH} not found. Please train the model first.")
+
+    if not os.path.exists(RISK_MODEL_PATH):
+        raise FileNotFoundError(f"{RISK_MODEL_PATH} not found. Please train the model first.")
+
+    crop_model = joblib.load(CROP_MODEL_PATH)
+    risk_model = joblib.load(RISK_MODEL_PATH)
+
+    return crop_model, risk_model
 
 
-def predict_crop_and_risk(N, P, K, temperature, humidity, ph, rainfall):
-    input_data = {
-        "N": N,
-        "P": P,
-        "K": K,
-        "temperature": temperature,
-        "humidity": humidity,
-        "ph": ph,
-        "rainfall": rainfall
-    }
+def predict_crop_and_risk(input_data):
+    """
+    Predict crop recommendation and risk level from input data.
+    """
 
-    input_df = pd.DataFrame([input_data])
+    crop_model, risk_model = load_models()
 
-    crop_prediction = crop_model.predict(input_df)[0]
-    risk_prediction = risk_model.predict(input_df)[0]
-    advisory = create_advisory(input_data)
+    if isinstance(input_data, dict):
+        input_data = pd.DataFrame([input_data])
 
-    result = {
+    crop_prediction = crop_model.predict(input_data)[0]
+    risk_prediction = risk_model.predict(input_data)[0]
+
+    return {
         "recommended_crop": crop_prediction,
-        "risk_level": risk_prediction,
-        "advisory": advisory
+        "risk_level": risk_prediction
     }
-
-    return result
-
-
-if __name__ == "__main__":
-    result = predict_crop_and_risk(
-        N=90,
-        P=42,
-        K=43,
-        temperature=20.8,
-        humidity=82.0,
-        ph=6.5,
-        rainfall=202.9
-    )
-
-    print("Recommended Crop:", result["recommended_crop"])
-    print("Risk Level:", result["risk_level"])
-    print("Advisory:", result["advisory"])
