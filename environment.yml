@@ -1,0 +1,13 @@
+name: smart-crop-mlops
+dependencies:
+  - python=3.10
+  - pip
+  - pip:
+      - pandas
+      - numpy
+      - scikit-learn
+      - joblib
+      - fastapi
+      - uvicorn
+      - pytest
+      - mlflow
