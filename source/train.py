@@ -2,67 +2,116 @@ import os
 import joblib
 import mlflow
 import mlflow.sklearn
-from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
+from sklearn.model_selection import train_test_split
+
 from source.data_processing import load_and_process_data
 
-# Create models folder if it does not exist
-os.makedirs("models", exist_ok=True)
+# -----------------------------
+# CONFIG
+# -----------------------------
+DATA_PATH = "data/crop_recommendation.csv"
+MODEL_DIR = "models"
+os.makedirs(MODEL_DIR, exist_ok=True)
 
-# Load and process dataset
-df = load_and_process_data("data/crop_recommendation.csv")
+CROP_MODEL_PATH = os.path.join(MODEL_DIR, "crop_model.pkl")
+RISK_MODEL_PATH = os.path.join(MODEL_DIR, "risk_model.pkl")
 
-# Features (inputs)
-X = df[['N', 'P', 'K', 'temperature', 'humidity', 'ph', 'rainfall']]
+# -----------------------------
+# SET MLFLOW TRACKING URI
+# -----------------------------
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
 
-# Targets (outputs)
-y_crop = df['label']
-y_risk = df['risk_level']
+# -----------------------------
+# LOAD DATA
+# -----------------------------
+df = load_and_process_data(DATA_PATH)
 
-# Split data for crop model
-X_train_crop, X_test_crop, y_train_crop, y_test_crop = train_test_split(
+feature_cols = ["N", "P", "K", "temperature", "humidity", "ph", "rainfall"]
+X = df[feature_cols]
+
+# Targets
+y_crop = df["label"]
+y_risk = df["risk_level"]
+
+# -----------------------------
+# TRAIN / TEST SPLIT
+# -----------------------------
+X_train, X_test, y_crop_train, y_crop_test = train_test_split(
     X, y_crop, test_size=0.2, random_state=42
 )
 
-# Split data for risk model
-X_train_risk, X_test_risk, y_train_risk, y_test_risk = train_test_split(
+_, _, y_risk_train, y_risk_test = train_test_split(
     X, y_risk, test_size=0.2, random_state=42
 )
 
-# Set MLflow experiment
-mlflow.set_experiment("Smart Crop Recommendation MLOps")
+# -----------------------------
+# MLFLOW EXPERIMENT
+# -----------------------------
+mlflow.set_experiment("Smart Crop Prediction")
 
 with mlflow.start_run():
 
-    # Train crop model
+    # -----------------------------
+    # CROP MODEL
+    # -----------------------------
     crop_model = RandomForestClassifier(n_estimators=100, random_state=42)
-    crop_model.fit(X_train_crop, y_train_crop)
-    crop_preds = crop_model.predict(X_test_crop)
-    crop_acc = accuracy_score(y_test_crop, crop_preds)
+    crop_model.fit(X_train, y_crop_train)
+    crop_preds = crop_model.predict(X_test)
+    crop_acc = accuracy_score(y_crop_test, crop_preds)
 
-    # Train risk model
+    # -----------------------------
+    # RISK MODEL
+    # -----------------------------
     risk_model = RandomForestClassifier(n_estimators=100, random_state=42)
-    risk_model.fit(X_train_risk, y_train_risk)
-    risk_preds = risk_model.predict(X_test_risk)
-    risk_acc = accuracy_score(y_test_risk, risk_preds)
+    risk_model.fit(X_train, y_risk_train)
+    risk_preds = risk_model.predict(X_test)
+    risk_acc = accuracy_score(y_risk_test, risk_preds)
 
-    # Save trained models
-    joblib.dump(crop_model, "models/crop_model.pkl")
-    joblib.dump(risk_model, "models/risk_model.pkl")
+    # -----------------------------
+    # SAVE MODELS
+    # -----------------------------
+    joblib.dump(crop_model, CROP_MODEL_PATH)
+    joblib.dump(risk_model, RISK_MODEL_PATH)
 
-    # Log parameters
-    mlflow.log_param("model_type", "RandomForestClassifier")
+    # -----------------------------
+    # LOG PARAMETERS
+    # -----------------------------
+    mlflow.log_param("algorithm", "RandomForestClassifier")
     mlflow.log_param("n_estimators", 100)
+    mlflow.log_param("random_state", 42)
 
-    # Log accuracy metrics
+    # -----------------------------
+    # LOG METRICS
+    # -----------------------------
     mlflow.log_metric("crop_accuracy", crop_acc)
     mlflow.log_metric("risk_accuracy", risk_acc)
 
-    # Log models into MLflow
-    mlflow.sklearn.log_model(crop_model, "crop_model")
-    mlflow.sklearn.log_model(risk_model, "risk_model")
+    # -----------------------------
+    # LOG ARTIFACTS
+    # -----------------------------
+    mlflow.log_artifact(CROP_MODEL_PATH)
+    mlflow.log_artifact(RISK_MODEL_PATH)
 
-    print("Crop Model Accuracy:", round(crop_acc, 4))
-    print("Risk Model Accuracy:", round(risk_acc, 4))
-    print("Models saved successfully.")
+    # -----------------------------
+    # REGISTER MODELS
+    # -----------------------------
+    crop_model_info = mlflow.sklearn.log_model(
+        sk_model=crop_model,
+        artifact_path="crop_model",
+        registered_model_name="CropRecommendationModel"
+    )
+
+    risk_model_info = mlflow.sklearn.log_model(
+        sk_model=risk_model,
+        artifact_path="risk_model",
+        registered_model_name="CropRiskModel"
+    )
+
+    print("✅ Training complete!")
+    print(f"🌾 Crop Model Accuracy: {crop_acc:.4f}")
+    print(f"⚠️ Risk Model Accuracy: {risk_acc:.4f}")
+    print("📦 Models saved in /models")
+    print("📊 MLflow run logged successfully")
+    print("🧾 Models registered in MLflow Registry")

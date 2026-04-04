@@ -1,0 +1,2 @@
+timestamp,N,P,K,temperature,humidity,ph,rainfall,predicted_crop,predicted_risk,advisory
+2026-04-04 16:06:41,90,42,43,20.8,82.0,6.5,202.9,rice,Safe,Suitable for high rainfall crops. Ensure proper drainage.

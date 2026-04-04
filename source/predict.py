@@ -1,69 +1,93 @@
-import joblib
 import os
+import csv
+import joblib
+from datetime import datetime
 import pandas as pd
 
+# -----------------------------
+# PATHS
+# -----------------------------
 CROP_MODEL_PATH = "models/crop_model.pkl"
 RISK_MODEL_PATH = "models/risk_model.pkl"
+LOG_DIR = "logs"
+LOG_FILE = os.path.join(LOG_DIR, "prediction_history.csv")
+
+# Ensure logs folder exists
+os.makedirs(LOG_DIR, exist_ok=True)
+
+# -----------------------------
+# LOAD MODELS
+# -----------------------------
+crop_model = joblib.load(CROP_MODEL_PATH)
+risk_model = joblib.load(RISK_MODEL_PATH)
 
 
-def load_models():
-    """
-    Load trained crop and risk models only when needed.
-    """
-    if not os.path.exists(CROP_MODEL_PATH):
-        raise FileNotFoundError(f"{CROP_MODEL_PATH} not found. Please train the model first.")
-
-    if not os.path.exists(RISK_MODEL_PATH):
-        raise FileNotFoundError(f"{RISK_MODEL_PATH} not found. Please train the model first.")
-
-    crop_model = joblib.load(CROP_MODEL_PATH)
-    risk_model = joblib.load(RISK_MODEL_PATH)
-
-    return crop_model, risk_model
-
-
-def generate_advisory(risk_level):
-    """
-    Generate simple advisory message based on predicted risk.
-    """
-    if str(risk_level).lower() == "safe":
-        return "Conditions look suitable for cultivation. Proceed with recommended crop planning."
-    elif str(risk_level).lower() == "moderate":
-        return "Moderate agricultural risk detected. Monitor soil and weather conditions carefully."
-    elif str(risk_level).lower() == "risky":
-        return "High agricultural risk detected. Take preventive measures before cultivation."
+# -----------------------------
+# ADVISORY LOGIC
+# -----------------------------
+def generate_advisory(ph, rainfall):
+    if rainfall > 200:
+        return "Suitable for high rainfall crops. Ensure proper drainage."
+    elif rainfall < 50:
+        return "Low rainfall detected. Irrigation is recommended."
+    elif ph < 5.8:
+        return "Soil is acidic. Consider pH balancing before cultivation."
+    elif ph > 7.8:
+        return "Soil is alkaline. Soil treatment may improve productivity."
     else:
-        return "Risk advisory unavailable. Please review input conditions."
+        return "Conditions are generally suitable for cultivation."
 
 
-def predict_crop_and_risk(input_data=None, **kwargs):
+# -----------------------------
+# LOG PREDICTION
+# -----------------------------
+def log_prediction(data, crop_prediction, risk_prediction, advisory):
+    file_exists = os.path.isfile(LOG_FILE)
+
+    with open(LOG_FILE, mode="a", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file)
+
+        # Write header only if file is new
+        if not file_exists:
+            writer.writerow([
+                "timestamp",
+                "N", "P", "K",
+                "temperature", "humidity", "ph", "rainfall",
+                "predicted_crop", "predicted_risk", "advisory"
+            ])
+
+        writer.writerow([
+            datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            data["N"], data["P"], data["K"],
+            data["temperature"], data["humidity"], data["ph"], data["rainfall"],
+            crop_prediction, risk_prediction, advisory
+        ])
+
+
+# -----------------------------
+# MAIN PREDICTION FUNCTION
+# -----------------------------
+def predict_crop_and_risk(input_data):
     """
-    Predict crop recommendation and risk level.
-
-    Supports:
-    1. Dictionary input
-    2. DataFrame input
-    3. Direct keyword arguments like N=90, P=42, ...
+    input_data = {
+        "N": ...,
+        "P": ...,
+        "K": ...,
+        "temperature": ...,
+        "humidity": ...,
+        "ph": ...,
+        "rainfall": ...
+    }
     """
 
-    crop_model, risk_model = load_models()
+    df = pd.DataFrame([input_data])
 
-    # If user passes keyword arguments like N=90, P=42...
-    if kwargs:
-        input_data = pd.DataFrame([kwargs])
+    crop_prediction = crop_model.predict(df)[0]
+    risk_prediction = risk_model.predict(df)[0]
+    advisory = generate_advisory(input_data["ph"], input_data["rainfall"])
 
-    # If user passes a dictionary
-    elif isinstance(input_data, dict):
-        input_data = pd.DataFrame([input_data])
-
-    # If no valid input is provided
-    elif input_data is None:
-        raise ValueError("No input data provided for prediction.")
-
-    crop_prediction = crop_model.predict(input_data)[0]
-    risk_prediction = risk_model.predict(input_data)[0]
-
-    advisory = generate_advisory(risk_prediction)
+    # Log prediction for monitoring
+    log_prediction(input_data, crop_prediction, risk_prediction, advisory)
 
     return {
         "recommended_crop": crop_prediction,
