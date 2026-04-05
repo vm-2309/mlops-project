@@ -14,8 +14,6 @@ from source.data_processing import load_and_process_data
 DATA_PATH = "data/crop_recommendation.csv"
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
-joblib.dump(crop_model, "models/crop_model.pkl")
-joblib.dump(risk_model, "models/risk_model.pkl")
 
 CROP_MODEL_PATH = os.path.join(MODEL_DIR, "crop_model.pkl")
 RISK_MODEL_PATH = os.path.join(MODEL_DIR, "risk_model.pkl")
@@ -99,21 +97,21 @@ with mlflow.start_run():
     # -----------------------------
     # REGISTER MODELS
     # -----------------------------
-    crop_model_info = mlflow.sklearn.log_model(
+    mlflow.sklearn.log_model(
         sk_model=crop_model,
         artifact_path="crop_model",
         registered_model_name="CropRecommendationModel"
     )
 
-    risk_model_info = mlflow.sklearn.log_model(
+    mlflow.sklearn.log_model(
         sk_model=risk_model,
         artifact_path="risk_model",
         registered_model_name="CropRiskModel"
     )
 
-    print("✅ Training complete!")
-    print(f"🌾 Crop Model Accuracy: {crop_acc:.4f}")
-    print(f"⚠️ Risk Model Accuracy: {risk_acc:.4f}")
-    print("📦 Models saved in /models")
-    print("📊 MLflow run logged successfully")
-    print("🧾 Models registered in MLflow Registry")
+    print("Training complete!")
+    print(f"Crop Model Accuracy: {crop_acc:.4f}")
+    print(f"Risk Model Accuracy: {risk_acc:.4f}")
+    print("Models saved in /models")
+    print("MLflow run logged successfully")
+    print("Models registered in MLflow Registry")
