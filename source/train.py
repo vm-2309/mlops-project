@@ -14,6 +14,8 @@ from source.data_processing import load_and_process_data
 DATA_PATH = "data/crop_recommendation.csv"
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
+joblib.dump(crop_model, "models/crop_model.pkl")
+joblib.dump(risk_model, "models/risk_model.pkl")
 
 CROP_MODEL_PATH = os.path.join(MODEL_DIR, "crop_model.pkl")
 RISK_MODEL_PATH = os.path.join(MODEL_DIR, "risk_model.pkl")
