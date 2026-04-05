@@ -27,6 +27,9 @@ jobs:
       - name: Train model
         run: python -m source.train
 
+      - name: Show project files
+        run: ls -R
+
       - name: Run tests
         run: pytest tests/
 
@@ -34,6 +37,7 @@ jobs:
         run: |
           test -f models/crop_model.pkl
           test -f models/risk_model.pkl
+
       - name: Upload model artifacts
         uses: actions/upload-artifact@v4
         with:
